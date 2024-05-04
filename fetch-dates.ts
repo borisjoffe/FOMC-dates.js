@@ -1,4 +1,27 @@
-/* import * as cheerio from 'cheerio' */
+/*
+The MIT License (MIT)
+
+Copyright (c) 2024 Boris Joffe
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+*/
+
 const fs = require('fs')
 const jsdom = require('jsdom')
 const { JSDOM } = jsdom
@@ -11,7 +34,6 @@ async function getHtml() {
 }
 
 const html = await getHtml()
-/* const $ = cheerio.load(html) */
 const dom = new JSDOM(html)
 const document = dom.window.document
 
@@ -22,8 +44,13 @@ const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', '
 
 function getFomcDates(): Array<Array<string, string>> {
 	/* const latestYear = $('.panel-heading')[0].textContent.match(/\d{4}/)[0] */
-	/* const latestYear = $('.panel-heading').text().match(/\d{4}/)[0] */
-	const latestYear = Array.from(document.querySelectorAll('.panel-heading')).map(x => parseInt(x.textContent, 10)).filter(yr => isFinite(yr)).toSorted().toReversed()[0]
+
+	// JSDom messes up the order of panel-headings, so they need to be
+	// processed more to get the latest year
+	const latestYear = Array.from(document.querySelectorAll('.panel-heading'))
+		.map(x => parseInt(x.textContent, 10))
+		.filter(yr => isFinite(yr))
+		.toSorted().toReversed()[0]
 	/* const latestYear = document.querySelector('h3').textContent.slice(-5, -1) */
 	console.debug({ latestYear })
 
@@ -33,23 +60,20 @@ function getFomcDates(): Array<Array<string, string>> {
 
 	const padLeftZero = (num): string => num < 10 ? '0' + num : '' + num
 
-	/* const fomcMonths = $('.fomc-meeting__month') */
 	const fomcMonths = Array.from(document.querySelectorAll('.fomc-meeting__month'))
 		.map(month => {
 			const mo = (month.textContent.split('/')[1] ?? month.textContent.split('/')[0]).substr(0, 3).toLowerCase()
-			/* const mo = (month.split('/')[1] ?? month.split('/')[0]).substr(0, 3).toLowerCase() */
 			const idx = MONTHS.indexOf(mo) + 1
 			return padLeftZero(idx)
 		})
 		.slice(0, MAX_MEETINGS)
 
-	/* const fomcDates = Array.from($('.fomc-meeting__date')) */
 	const fomcDates = Array.from(document.querySelectorAll('.fomc-meeting__date'))
 		.map((d, idx) => {
 			const dateTxt = d.textContent.split('-')[1] ?? d.textContent
 			const dateNum = parseInt(dateTxt, 10)
 			if (dateNum > 31)
-				console.error('date is more than 31')
+				console.error('invalid date: greater than 31')
 			const extraTxt = dateTxt.replace(/^\d{1,2}/, '')
 
 			const yr = latestYear - Math.floor(idx / NUM_MEETINGS)
@@ -70,4 +94,3 @@ const csv = getFomcDates().toSorted().join('\n')
 fs.writeFileSync('dates.csv', csv)
 console.log(csv)
 
-/* console.log(getFomcDates().join('\n').join(',')) */
